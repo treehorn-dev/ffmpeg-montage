@@ -73,8 +73,25 @@ if [ -n "$GRID_ARG" ]; then
             NR==1 { printf("SRC_WIDTH=%s\n", $1) }
             NR==2 { printf("SRC_HEIGHT=%s\n", $1) }')"
 
-    CELL_WIDTH=$((SRC_WIDTH / GRID_WIDTH))
-    CELL_HEIGHT=$((SRC_HEIGHT / GRID_HEIGHT))
+    # Check if grid is square (rows == cols)
+    if [ "$GRID_WIDTH" -eq "$GRID_HEIGHT" ]; then
+        # Square grid: fit within source resolution
+        CELL_WIDTH=$((SRC_WIDTH / GRID_WIDTH))
+        CELL_HEIGHT=$((SRC_HEIGHT / GRID_HEIGHT))
+    else
+        # Non-square grid: preserve aspect ratio, allow non-standard output size
+        # Use smaller dimension to ensure reasonable cell sizes
+        if [ "$GRID_WIDTH" -gt "$GRID_HEIGHT" ]; then
+            CELL_HEIGHT=$((SRC_HEIGHT / GRID_HEIGHT))
+            CELL_WIDTH=$((CELL_HEIGHT * SRC_WIDTH / SRC_HEIGHT))
+        else
+            CELL_WIDTH=$((SRC_WIDTH / GRID_WIDTH))
+            CELL_HEIGHT=$((CELL_WIDTH * SRC_HEIGHT / SRC_WIDTH))
+        fi
+    fi
+    # Ensure even dimensions for compatibility
+    [ $((CELL_WIDTH % 2)) -ne 0 ] && CELL_WIDTH=$((CELL_WIDTH - 1))
+    [ $((CELL_HEIGHT % 2)) -ne 0 ] && CELL_HEIGHT=$((CELL_HEIGHT - 1))
 
     FILTERS=""
     INPUTS=()
@@ -82,7 +99,7 @@ if [ -n "$GRID_ARG" ]; then
         OFFSET="${OFFSETS_RAW[$i]}"
         START_SEC=$(timestamp_to_seconds "$OFFSET")
         LABEL="v$((i+1))"
-        FILTERS="${FILTERS}[0:v]trim=start=${START_SEC}:duration=${DURATION_SEC},setpts=PTS-STARTPTS,scale=${CELL_WIDTH}:${CELL_HEIGHT},pad=${CELL_WIDTH}:${CELL_HEIGHT}:color=black[${LABEL}]; "
+        FILTERS="${FILTERS}[0:v]trim=start=${START_SEC}:duration=${DURATION_SEC},setpts=PTS-STARTPTS,scale=${CELL_WIDTH}:${CELL_HEIGHT}:force_original_aspect_ratio=decrease,pad=${CELL_WIDTH}:${CELL_HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black[${LABEL}]; "
         INPUTS+=("[${LABEL}]")
     done
 
