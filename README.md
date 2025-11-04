@@ -58,8 +58,13 @@ Extract 6 segments of 2 seconds each and arrange them in a 3x2 grid:
 
 This creates a 3-column, 2-row layout sampling throughout the video.
 
-**Preview:** ![3x2 Grid](img/grid_3x2.gif)
-**Download:** [img/grid_3x2.mp4](img/grid_3x2.mp4)
+**Preview:** 
+
+![3x2 Grid](img/grid_3x2.gif)
+
+**Download:** 
+
+[img/grid_3x2.mp4](img/grid_3x2.mp4)
 
 <details>
 <summary>Show generated ffmpeg command</summary>
@@ -95,8 +100,13 @@ Sample every minute and a half throughout the 9:56 video:
 ./ffmpeg-montage -o "0,1:30,3:00,4:30,6:00,7:30,9:00" -d "2" -g "3x3" big_buck_bunny_480p_h264.mov img/contact_sheet.mp4
 ```
 
-**Preview:** ![Contact Sheet](img/contact_sheet.gif)
-**Download:** [img/contact_sheet.mp4](img/contact_sheet.mp4)
+**Preview:** 
+
+![Contact Sheet](img/contact_sheet.gif)
+
+**Download:** 
+
+[img/contact_sheet.mp4](img/contact_sheet.mp4)
 
 ### Preview Just the Command
 
@@ -122,8 +132,13 @@ Extract and join three 10-second clips from Big Buck Bunny:
 
 Creates: `[1:30-1:40] → [4:15-4:25] → [7:20-7:30]`
 
-**Preview:** ![Highlights](img/highlights.gif)
-**Download:** [img/highlights.mp4](img/highlights.mp4)
+**Preview:** 
+
+![Highlights](img/highlights.gif)
+
+**Download:** 
+
+[img/highlights.mp4](img/highlights.mp4)
 
 <details>
 <summary>Show generated ffmpeg command</summary>
@@ -143,8 +158,13 @@ Different duration for each segment:
 
 Creates: `[0:30-0:35] → [2:15-2:23] → [5:45-5:57]`
 
-**Preview:** ![Variable Cuts](img/variable_cuts.gif)
-**Download:** [img/variable_cuts.mp4](img/variable_cuts.mp4)
+**Preview:** 
+
+![Variable Cuts](img/variable_cuts.gif)
+
+**Download:** 
+
+[img/variable_cuts.mp4](img/variable_cuts.mp4)
 
 ### Quick Trailer
 
