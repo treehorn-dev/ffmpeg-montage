@@ -48,41 +48,37 @@ Times can be specified as:
 
 Grid mode creates a spatial layout where multiple video segments are displayed simultaneously in a grid pattern.
 
-### Basic 3x2 Grid
+### Basic 2x2 Grid
 
-Extract 6 segments of 2 seconds each and arrange them in a 3x2 grid:
+Extract 4 segments of 2 seconds each and arrange them in a 2x2 grid:
 
 ```bash
-./ffmpeg-montage -o "0:10,1:20,2:30,4:10,6:00,8:30" -d "2" -g "3x2" big_buck_bunny_480p_stereo.avi img/grid_3x2.mp4
+./ffmpeg-montage -o "0:10,1:00,2:30,4:00" -d "5" -g "2x2" big_buck_bunny_480p_h264.mov test_grid.mp4
 ```
 
-This creates a 3-column, 2-row layout sampling throughout the video.
+This creates a 2-column, 2-row layout sampling throughout the video.
 
-**Preview:** 
-
-![3x2 Grid](img/grid_3x2.gif)
-
-**Download:** 
-
-[img/grid_3x2.mp4](img/grid_3x2.mp4)
+**Preview:** ![2x2 Grid](img/grid_2x2.gif)
+**Download:** [img/grid_2x2.mp4](img/grid_2x2.mp4)
 
 <details>
 <summary>Show generated ffmpeg command</summary>
 
 ```bash
-ffmpeg -i "big_buck_bunny_480p_stereo.avi" -filter_complex "[0:v]trim=start=10:duration=2,setpts=PTS-STARTPTS,scale=284:240,pad=284:240:color=black[v1]; [0:v]trim=start=80:duration=2,setpts=PTS-STARTPTS,scale=284:240,pad=284:240:color=black[v2]; [0:v]trim=start=150:duration=2,setpts=PTS-STARTPTS,scale=284:240,pad=284:240:color=black[v3]; [0:v]trim=start=250:duration=2,setpts=PTS-STARTPTS,scale=284:240,pad=284:240:color=black[v4]; [0:v]trim=start=360:duration=2,setpts=PTS-STARTPTS,scale=284:240,pad=284:240:color=black[v5]; [0:v]trim=start=510:duration=2,setpts=PTS-STARTPTS,scale=284:240,pad=284:240:color=black[v6]; [v1] [v2] [v3] [v4] [v5] [v6]xstack=inputs=6:layout=0_0|284_0|568_0|0_240|284_240|568_240[outv]" -map "[outv]" -c:v libx264 -crf 18 -preset fast "img/grid_3x2.mp4"
+ffmpeg -i "big_buck_bunny_480p_h264.mov" -filter_complex "[0:v]trim=start=10:duration=5,setpts=PTS-STARTPTS,scale=426:240,pad=426:240:(ow-iw)/2:(oh-ih)/2:color=black[v1]; [0:v]trim=start=60:duration=5,setpts=PTS-STARTPTS,scale=426:240,pad=426:240:(ow-iw)/2:(oh-ih)/2:color=black[v2]; [0:v]trim=start=150:duration=5,setpts=PTS-STARTPTS,scale=426:240,pad=426:240:(ow-iw)/2:(oh-ih)/2:color=black[v3]; [0:v]trim=start=240:duration=5,setpts=PTS-STARTPTS,scale=426:240,pad=426:240:(ow-iw)/2:(oh-ih)/2:color=black[v4]; [v1] [v2] [v3] [v4]xstack=inputs=4:layout=0_0|426_0|0_240|426_240[outv]" -map "[outv]" -c:v libx264 -crf 18 -preset fast "test_grid.mp4"
 ```
 </details>
 
-### Auto-sized Grid
+### 3x2 Grid
 
-Let the script determine optimal grid size for 6 segments:
+Extract 6 segments and arrange them in a 3x2 grid:
 
 ```bash
 ./ffmpeg-montage -o "0:10,1:20,2:30,4:10,6:00,8:30" -d "3" -g "3x2" big_buck_bunny_480p_h264.mov img/grid_3x2.mp4
 ```
 
-**Result:** [img/grid_3x2.mp4](img/grid_3x2.mp4)
+**Preview:** ![3x2 Grid](img/grid_3x2.gif)
+**Download:** [img/grid_3x2.mp4](img/grid_3x2.mp4)
 
 <details>
 <summary>Show generated ffmpeg command</summary>
@@ -97,16 +93,11 @@ ffmpeg -i "big_buck_bunny_480p_h264.mov" -filter_complex "[0:v]trim=start=10:dur
 Sample every minute and a half throughout the 9:56 video:
 
 ```bash
-./ffmpeg-montage -o "0,1:30,3:00,4:30,6:00,7:30,9:00" -d "2" -g "3x3" big_buck_bunny_480p_h264.mov img/contact_sheet.mp4
+./ffmpeg-montage -o "0,1:30,3:00,4:30,6:00,7:30" -d "2" -g "3x2" big_buck_bunny_480p_h264.mov img/contact_sheet.mp4
 ```
 
-**Preview:** 
-
-![Contact Sheet](img/contact_sheet.gif)
-
-**Download:** 
-
-[img/contact_sheet.mp4](img/contact_sheet.mp4)
+**Preview:** ![Contact Sheet](img/contact_sheet.gif)
+**Download:** [img/contact_sheet.mp4](img/contact_sheet.mp4)
 
 ### Preview Just the Command
 
@@ -132,13 +123,8 @@ Extract and join three 10-second clips from Big Buck Bunny:
 
 Creates: `[1:30-1:40] → [4:15-4:25] → [7:20-7:30]`
 
-**Preview:** 
-
-![Highlights](img/highlights.gif)
-
-**Download:** 
-
-[img/highlights.mp4](img/highlights.mp4)
+**Preview:** ![Highlights](img/highlights.gif)
+**Download:** [img/highlights.mp4](img/highlights.mp4)
 
 <details>
 <summary>Show generated ffmpeg command</summary>
@@ -158,13 +144,8 @@ Different duration for each segment:
 
 Creates: `[0:30-0:35] → [2:15-2:23] → [5:45-5:57]`
 
-**Preview:** 
-
-![Variable Cuts](img/variable_cuts.gif)
-
-**Download:** 
-
-[img/variable_cuts.mp4](img/variable_cuts.mp4)
+**Preview:** ![Variable Cuts](img/variable_cuts.gif)
+**Download:** [img/variable_cuts.mp4](img/variable_cuts.mp4)
 
 ### Quick Trailer
 
@@ -179,13 +160,13 @@ Create a 30-second trailer from key moments in the short film:
 ### Content Review
 ```bash
 # Create a contact sheet for quick content review of Big Buck Bunny
-./ffmpeg-montage -o "0,1:00,2:00,3:00,4:00,5:00,6:00,7:00,8:00" -d "3" -g "3x3" big_buck_bunny_480p_h264.mov img/review.mp4
+./ffmpeg-montage -o "0,1:00,2:00,3:00,4:00,5:00" -d "3" -g "3x2" big_buck_bunny_480p_h264.mov img/review.mp4
 ```
 
 ### Character Introduction Montage
 ```bash
 # Sample key character moments every 90 seconds
-./ffmpeg-montage -o "0:15,1:45,3:15,4:45,6:15,7:45,9:15" -d "4" -g "3x3" big_buck_bunny_480p_h264.mov img/character_grid.mp4
+./ffmpeg-montage -o "0:15,1:45,3:15,4:45,6:15,7:45" -d "4" -g "3x2" big_buck_bunny_480p_h264.mov img/character_grid.mp4
 ```
 
 ### A/B Testing Cuts
