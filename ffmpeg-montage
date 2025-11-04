@@ -1,0 +1,161 @@
+#!/bin/sh
+
+timestamp_to_seconds() {
+    IFS=':' read -r a b c <<EOF
+$1
+EOF
+    if [ -z "$b" ]; then echo "$((10#$a))"
+    elif [ -z "$c" ]; then echo "$((10#$a * 60 + 10#$b))"
+    else echo "$((10#$a * 3600 + 10#$b * 60 + 10#$c))"
+    fi
+}
+
+OFFSET_ARG=""
+DURATION_ARG=""
+GRID_ARG=""
+PRINT_ONLY=0
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -o|--offset) OFFSET_ARG="$2"; shift 2 ;;
+        -d|--duration) DURATION_ARG="$2"; shift 2 ;;
+        -g|--grid) GRID_ARG="$2"; shift 2 ;;
+        --print) PRINT_ONLY=1; shift ;;
+        --) shift; break ;;
+        -*) echo "Unknown option: $1" >&2; exit 1 ;;
+        *) break ;;
+    esac
+done
+
+[ $# -ne 2 ] && echo "Usage: $0 -o offsets -d duration [-g WxH] [--print] input.mp4 output.mp4" >&2 && exit 1
+
+INPUT="$1"
+OUTPUT="$2"
+
+IFS=',' read -r -a OFFSETS_RAW <<EOF
+$OFFSET_ARG
+EOF
+
+if [ -z "$DURATION_ARG" ]; then
+    echo "Error: Must provide --duration" >&2
+    exit 1
+fi
+
+# --- GRID MODE ---
+if [ -n "$GRID_ARG" ]; then
+    if echo "$DURATION_ARG" | grep -q ','; then
+        echo "Error: In grid mode, duration (-d) must be a single value" >&2
+        exit 1
+    fi
+
+    DURATION_SEC=$(timestamp_to_seconds "$DURATION_ARG")
+
+    if [ -z "$GRID_ARG" ]; then
+        NSEGMENTS=${#OFFSETS_RAW[@]}
+        G=$(awk -v n="$NSEGMENTS" 'BEGIN { printf("%d", sqrt(n) == int(sqrt(n)) ? sqrt(n) : int(sqrt(n))+1) }')
+        GRID_WIDTH=$G
+        GRID_HEIGHT=$G
+    else
+        GRID_WIDTH=$(echo "$GRID_ARG" | cut -d'x' -f1)
+        GRID_HEIGHT=$(echo "$GRID_ARG" | cut -d'x' -f2)
+    fi
+    TOTAL_CELLS=$((GRID_WIDTH * GRID_HEIGHT))
+
+    NSEGMENTS=${#OFFSETS_RAW[@]}
+    if [ "$NSEGMENTS" -gt "$TOTAL_CELLS" ]; then
+        echo "Error: More segments than grid cells ($NSEGMENTS > $TOTAL_CELLS)" >&2
+        exit 1
+    fi
+
+    # Probe input resolution
+    eval "$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height \
+        -of default=noprint_wrappers=1:nokey=1 "$INPUT" | awk '
+            NR==1 { printf("SRC_WIDTH=%s\n", $1) }
+            NR==2 { printf("SRC_HEIGHT=%s\n", $1) }')"
+
+    CELL_WIDTH=$((SRC_WIDTH / GRID_WIDTH))
+    CELL_HEIGHT=$((SRC_HEIGHT / GRID_HEIGHT))
+
+    FILTERS=""
+    INPUTS=()
+    for i in $(seq 0 $((NSEGMENTS - 1))); do
+        OFFSET="${OFFSETS_RAW[$i]}"
+        START_SEC=$(timestamp_to_seconds "$OFFSET")
+        LABEL="v$((i+1))"
+        FILTERS="${FILTERS}[0:v]trim=start=${START_SEC}:duration=${DURATION_SEC},setpts=PTS-STARTPTS,scale=${CELL_WIDTH}:${CELL_HEIGHT},pad=${CELL_WIDTH}:${CELL_HEIGHT}:color=black[${LABEL}]; "
+        INPUTS+=("[${LABEL}]")
+    done
+
+    PAD_COUNT=$((TOTAL_CELLS - NSEGMENTS))
+    for i in $(seq 1 "$PAD_COUNT"); do
+        LABEL="blank$((i))"
+        FILTERS="${FILTERS}color=black:s=${CELL_WIDTH}x${CELL_HEIGHT}:d=${DURATION_SEC}[${LABEL}]; "
+        INPUTS+=("[${LABEL}]")
+    done
+
+    # Layout string
+    LAYOUT=""
+    for row in $(seq 0 $((GRID_HEIGHT - 1))); do
+        for col in $(seq 0 $((GRID_WIDTH - 1))); do
+            X=$((col * CELL_WIDTH))
+            Y=$((row * CELL_HEIGHT))
+            LAYOUT="${LAYOUT}${X}_${Y}|"
+        done
+    done
+    LAYOUT=${LAYOUT%|}
+
+    FILTER_COMPLEX="${FILTERS}${INPUTS[*]}xstack=inputs=${TOTAL_CELLS}:layout=${LAYOUT}[outv]"
+
+    COMMAND="ffmpeg -i \"$INPUT\" -filter_complex \"$FILTER_COMPLEX\" -map \"[outv]\" -c:v libx264 -crf 18 -preset fast \"$OUTPUT\""
+    if [ "$PRINT_ONLY" -eq 1 ]; then
+        echo "$COMMAND"
+        exit 0
+    else
+        eval "$COMMAND"
+    fi
+    exit 0
+fi
+
+# --- TIME-BASED MODE (with audio) ---
+IFS=',' read -r -a DURATIONS_RAW <<EOF
+$DURATION_ARG
+EOF
+
+if [ "${#DURATIONS_RAW[@]}" -eq 1 ] && [ "${#OFFSETS_RAW[@]}" -gt 1 ]; then
+    SINGLE_DURATION="${DURATIONS_RAW[0]}"
+    for i in $(seq 1 $((${#OFFSETS_RAW[@]} - 1))); do
+        DURATIONS_RAW+=("$SINGLE_DURATION")
+    done
+fi
+
+if [ "${#OFFSETS_RAW[@]}" -ne "${#DURATIONS_RAW[@]}" ]; then
+    echo "Error: Number of durations does not match number of offsets" >&2
+    exit 1
+fi
+
+FILTERS=""
+CONCAT_INPUTS=""
+for i in "${!OFFSETS_RAW[@]}"; do
+    OFFSET="${OFFSETS_RAW[$i]}"
+    DURATION="${DURATIONS_RAW[$i]}"
+    START_SEC=$(timestamp_to_seconds "$OFFSET")
+    DURATION_SEC=$(timestamp_to_seconds "$DURATION")
+
+    V_LABEL="v$((i+1))"
+    A_LABEL="a$((i+1))"
+
+    FILTERS="${FILTERS}[0:v]trim=start=${START_SEC}:duration=${DURATION_SEC},setpts=PTS-STARTPTS[${V_LABEL}]; "
+    FILTERS="${FILTERS}[0:a]atrim=start=${START_SEC}:duration=${DURATION_SEC},asetpts=PTS-STARTPTS[${A_LABEL}]; "
+    CONCAT_INPUTS="${CONCAT_INPUTS}[${V_LABEL}][${A_LABEL}]"
+done
+
+NSEGMENTS="${#OFFSETS_RAW[@]}"
+FILTER_COMPLEX="${FILTERS}${CONCAT_INPUTS}concat=n=${NSEGMENTS}:v=1:a=1[outv][outa]"
+
+COMMAND="ffmpeg -i \"$INPUT\" -filter_complex \"$FILTER_COMPLEX\" -map \"[outv]\" -map \"[outa]\" -c:v libx264 -c:a aac -crf 18 -preset fast \"$OUTPUT\""
+
+if [ "$PRINT_ONLY" -eq 1 ]; then
+    echo "$COMMAND"
+else
+    eval "$COMMAND"
+fi
